@@ -76,11 +76,11 @@ const User = sequelize.define(
     },
     deletedAt: {
       type: Sequelize.DATE,
-      allowNull: true, // Allow null to enable soft delete
+      allowNull: true,
     },
   },
   {
-    paranoid: true, // enable soft deletion
+    paranoid: true,
   }
 );
 
@@ -99,5 +99,4 @@ MessageReply.belongsTo(User, { as: "sender", foreignKey: "senderId" });
 MessageReply.belongsTo(User, { as: "receiver", foreignKey: "receiverId" });
 Group.belongsToMany(User, { through: "usergroups" });
 
-// User.sync();
 module.exports = User;

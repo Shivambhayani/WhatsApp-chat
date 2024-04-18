@@ -2,24 +2,18 @@ const express = require("express");
 const router = express.Router();
 const {
   sendMessage,
-  recivedMessage,
+  getAllMessage,
   deleteMessage,
   editmesseges,
 } = require("./controller");
 const { protected } = require("../../middlewares/auth");
+const upload = require("../../middlewares/multer.js");
 
 router.use(protected);
 
-router.post("/sendMessage", sendMessage);
-router.get("/getAll", recivedMessage);
-router.delete("/:id", deleteMessage);
+router.post("/sendMessage", upload.single("fileurl"), sendMessage);
 router.patch("/:id", editmesseges);
-// groups
-// router.post("/groups", createGroupChat);
-// rename group name
-// router.patch("/renameGroup",renameGroup)
-// group add
-// router.patch("/groupAdd",AddGroupMember)
-// group remove
-// router.patch('/removeFromgroup,removeFromGroup)
+router.get("/getAll", getAllMessage);
+router.delete("/:id", deleteMessage);
+
 module.exports = router;

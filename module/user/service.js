@@ -15,3 +15,7 @@ exports.findAll = async (data) => {
 exports.findByPk = async (data) => {
   return User.findByPk(data);
 };
+
+exports.update = async (data, query) => {
+  return User.update(data, query);
+};

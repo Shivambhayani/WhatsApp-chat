@@ -1,5 +1,8 @@
 const { generateToken, sendToken } = require("../../middlewares/auth.js");
-const { uploadCloudinary } = require("../../utills/fileUpload.js");
+const {
+  uploadCloudinary,
+  deleteFileFromCloudinary,
+} = require("../../utills/fileUpload.js");
 const bcrypt = require("bcryptjs");
 const service = require("./service.js");
 const { Op } = require("sequelize");
@@ -28,7 +31,7 @@ exports.signUp = async (req, res, next) => {
         message: "Email already exists!",
       });
     }
-    console.log(req.file);
+    // console.log(req.file);
     if (!req.file) {
       throw new Error("Image file is missing");
     }
@@ -37,9 +40,9 @@ exports.signUp = async (req, res, next) => {
     const entityId = uuidv4();
 
     const imageLocalPath = req?.file?.path;
-    console.log("localPath =>>", imageLocalPath);
+    // console.log("localPath =>>", imageLocalPath);
     const image = await uploadCloudinary(imageLocalPath, "user", entityId);
-    console.log("image ===>", image);
+    // console.log("image ===>", image);
     if (!image) {
       return res.status(500).json({
         status: "fail",
@@ -60,10 +63,6 @@ exports.signUp = async (req, res, next) => {
     const userWithoutSensitiveData = senatizeUser(user);
     sendToken(userWithoutSensitiveData, token, 201, res);
   } catch (error) {
-    // return res.status(400).json({
-    //   status: "fail",
-    //   message: error.message,
-    // });
     next(error);
   }
 };
@@ -107,7 +106,43 @@ exports.login = async (req, res, next) => {
   }
 };
 
-// query
+// update data
+
+exports.updatesUserData = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const userDataToUpdate = { ...req.body };
+
+    if (req.file) {
+      const user = await service.findByPk(userId);
+
+      if (user.image) {
+        await deleteFileFromCloudinary(user.image);
+      }
+      // upload new image
+      const uploadNewImage = await uploadCloudinary(
+        req.file.path,
+        "user",
+        userId
+      );
+      userDataToUpdate.image = uploadNewImage.url;
+    }
+
+    const [rowsAffected, updateData] = await service.update(userDataToUpdate, {
+      where: { id: userId },
+      returning: true,
+    });
+    // console.log("Update data:", updateData);
+    const data = senatizeUser(updateData[0]);
+    return res.status(202).json({
+      status: "success",
+      message: "Data updated successfully",
+      data: data,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
 exports.allUsers = async (req, res, next) => {
   try {
@@ -119,33 +154,40 @@ exports.allUsers = async (req, res, next) => {
           ],
         }
       : {};
-    const user = await service.findAll({
+    const users = await service.findAll({
       where: {
         [Op.and]: [keyword, { id: { [Op.ne]: req.user.id } }],
       },
     });
     // .findAll({ id: { [Op.ne]: req.user.id } });
-    if (user.length === 0) {
+    if (users.length === 0) {
       return res.status(404).json({
         status: "fail",
         data: "No result found",
       });
     }
+
+    // Sanitize user objects to exclude sensitive fields
+    const sanitizedUsers = users.map((user) => {
+      const { password, createdAt, updatedAt, deletedAt, ...sanitizedUser } =
+        user.toJSON();
+      return sanitizedUser;
+    });
     res.status(200).json({
       status: "success",
-      data: user,
+      data: sanitizedUsers,
     });
   } catch (error) {
     next(error);
   }
 };
 
-exports.logout = async (req, res) => {
-  // Clear the token cookie
-  res.clearCookie("token");
+// exports.logout = async (req, res) => {
+//   // Clear the token cookie
+//   res.clearCookie("token");
 
-  // Send a response indicating successful logout
-  res
-    .status(200)
-    .json({ status: "success", message: "Logged out successfully" });
-};
+//   // Send a response indicating successful logout
+//   res
+//     .status(200)
+//     .json({ status: "success", message: "Logged out successfully" });
+// };

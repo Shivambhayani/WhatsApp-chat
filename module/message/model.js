@@ -61,13 +61,9 @@ const Message = sequelize.define(
 Message.hasMany(FileStore, { foreignKey: "messageId" }); // A message can have many attachments
 FileStore.belongsTo(Message, { foreignKey: "messageId" });
 
-// Message.belongsTo(User, { as: "sender", foreignKey: "senderId" }); // A message belongs to a sender (user)
-
-// Message.belongsTo(User, { as: "receiver", foreignKey: "receiverId" }); // A message can have a receiver (user) (optional for private messages)
 
 Group.hasMany(Message, { foreignKey: "groupId" });
 Message.belongsTo(Group, { foreignKey: "groupId" }); // A message can belong to a group
 
-// Message.sync();
 
 module.exports = Message;

@@ -1,10 +1,18 @@
 const service = require("./service.js");
 const UserGroupService = require("../user_groups/service.js");
 const UserService = require("../user/service.js");
-const { uploadCloudinary } = require("../../utills/fileUpload.js");
+const {
+  uploadCloudinary,
+  deleteFileFromCloudinary,
+} = require("../../utills/fileUpload.js");
 const { v4: uuidv4 } = require("uuid");
 const MessageService = require("../message/service.js");
 const moment = require("moment");
+const { uploadFileToCloudinary } = require("../fileStroage/controller.js");
+const User = require("../user/model.js");
+const MessageReply = require("../messageReply/model.js");
+const { Op } = require("sequelize");
+const FileStore = require("../fileStroage/model.js");
 
 exports.createGroup = async (req, res, next) => {
   try {
@@ -46,13 +54,6 @@ exports.createGroup = async (req, res, next) => {
       group_pic: image?.url || "", // not complasary
     });
 
-    //  loop users to add in groups
-
-    // const userGroupPromises = userIds.map(async (userId) => {
-    //   const role = userId === adminId ? 1 : 0;
-    //   return UserGroupService.create({ groupId: group.id, userId, role });
-    // });
-
     if (userIds && userIds.length > 0) {
       await Promise.all(
         userIds.map((userId) =>
@@ -75,6 +76,7 @@ exports.createGroup = async (req, res, next) => {
   }
 };
 
+// new member add
 exports.addMemberToGroup = async (req, res, next) => {
   try {
     const { groupId, userIds } = req.body;
@@ -171,12 +173,15 @@ exports.promoteToAdmin = async (req, res, next) => {
   }
 };
 
-exports.renameGroup = async (req, res, next) => {
+//  update group detail   :(only admins)
+exports.updateGroupDetails = async (req, res, next) => {
   try {
+    const groupId = req.params.id;
     const userId = req.user.id;
+    const UpdatedData = { ...req.body };
     // Check if the user making the request is the admin of the group
     const userGroup = await UserGroupService.findOne({
-      where: { groupId: req.params.id, userId, role: 1 },
+      where: { groupId, userId, role: 1 },
     });
 
     if (!userGroup) {
@@ -184,14 +189,37 @@ exports.renameGroup = async (req, res, next) => {
         .status(403)
         .json({ status: "fail", message: "Only admin can rename the group" });
     }
-    const renamed = await service.update(req.body, {
-      where: { id: req.params.id },
-    });
 
-    res.status(203).json({
+    if (req.file) {
+      const group = await service.findByPk(groupId);
+
+      if (group.group_pic) {
+        await deleteFileFromCloudinary(group.group_pic);
+      }
+      // upload new image
+      const uploadNewImage = await uploadCloudinary(
+        req.file.path,
+        "group",
+        groupId
+      );
+      UpdatedData.group_pic = uploadNewImage.url;
+    }
+    const [rowAffected] = await service.update(UpdatedData, {
+      where: { id: groupId },
+    });
+    if (rowAffected === 0) {
+      return res.status(404).json({
+        status: "fail",
+        message: "Group not found or no changes applied",
+      });
+    }
+    const newData = await service.findByPk(groupId);
+    // console.log("New group data:", newData);
+
+    return res.status(203).json({
       status: "success",
-      message: "group name updated successfully",
-      data: renamed,
+      message: "Gorup Data updated successfully",
+      data: newData,
     });
   } catch (error) {
     next(error);
@@ -239,6 +267,7 @@ exports.removeUserFromGroup = async (req, res, next) => {
   }
 };
 
+// delete Group
 exports.deleteGroup = async (req, res, next) => {
   try {
     const groupId = req.params.id.split(",").map((id) => parseInt(id));
@@ -254,8 +283,7 @@ exports.deleteGroup = async (req, res, next) => {
   }
 };
 
-// group chats
-
+// create group chats
 exports.groupChats = async (req, res, next) => {
   try {
     const groupId = req.params.id;
@@ -281,21 +309,130 @@ exports.groupChats = async (req, res, next) => {
       sent_At: sentAt,
     });
 
+    //  file uploads in cloudnary
+    await uploadFileToCloudinary(req, message);
+
     return res.status(201).json({ status: "success", data: message });
   } catch (error) {
     next(error);
   }
 };
 
+// get all group messages
 exports.getAll = async (req, res, next) => {
   try {
     const groupId = req.params.id;
 
     const messages = await MessageService.findAll({
       where: { groupId },
+      include: [
+        { model: User, as: "sender", attributes: ["id", "name"] },
+        // { model: User, as: "receiver", attributes: ["id", "name"] },
+        {
+          model: MessageReply, // Include message replies
+          include: [
+            { model: User, as: "sender", attributes: ["id", "name"] },
+            // { model: User, as: "receiver", attributes: ["id", "name"] },
+          ],
+          attributes: [
+            "id",
+            "messageId",
+            "conversation",
+            "sent_At",
+            "seen_At",
+            "delivred",
+          ],
+          order: [["createdAt", "DESC"]],
+        },
+        {
+          model: FileStore, // Include file sharing
+          attributes: [
+            "id",
+            "messageId",
+            "filename",
+            "type",
+            "filesize",
+            "fileurl",
+            "sent_At",
+            "seen_At",
+            "delivered",
+          ],
+          order: [["sent_At", "DESC"]],
+        },
+      ],
       order: [["createdAt", "DESC"]],
+      attributes: [
+        "id",
+        "conversation",
+        "senderId",
+        "receiverId",
+        "groupId",
+        "sent_At",
+        "seen_At",
+        "delivred",
+      ],
     });
     return res.status(200).json({ status: "success", data: messages });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// particular message
+exports.deleteGroupMessage = async (req, res, next) => {
+  try {
+    const messageId = req.params.id.split(",").map((id) => parseInt(id));
+    const result = await MessageService.destroy({
+      where: {
+        id: messageId,
+        senderId: req.user.id,
+        groupId: { [Op.ne]: null },
+      },
+      attributes: ["groupId"],
+    });
+    if (result === 0) {
+      // If no rows were affected, it means either the message was not found or the user is not the sender
+      return res.status(403).json({
+        status: "fail",
+        error: "You are not authorized to delete this message",
+      });
+    }
+    return res.status(200).json({
+      status: "success",
+      message: "message deleted successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.editGroupMessages = async (req, res, next) => {
+  try {
+    const [rowsUpdated, [updatedMessage]] = await MessageService.update(
+      req.body,
+      {
+        where: {
+          id: req.params.id,
+          senderId: req.user.id,
+          groupId: { [Op.not]: null },
+        },
+        returning: true, // Get the updated message object
+      }
+    );
+
+    //  only sender update message
+    if (rowsUpdated === 0) {
+      return res.status(403).json({
+        status: "error",
+        message: "You are not authorized to edit this message",
+      });
+    }
+
+    res.status(203).json({
+      status: "success",
+      message: "Message updated successfully",
+      data: updatedMessage,
+    });
   } catch (error) {
     next(error);
   }

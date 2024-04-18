@@ -65,8 +65,4 @@ const MessageReply = sequelize.define(
 Message.hasMany(MessageReply, { foreignKey: "messageId" });
 MessageReply.belongsTo(Message, { foreignKey: "messageId" });
 
-// MessageReply.belongsTo(Message, { foreignKey: "messageId" }); // A reply belongs to a message
-// MessageReply.belongsTo(User, { as: "sender", foreignKey: "senderId" });
-// MessageReply.belongsTo(User, { as: "receiver", foreignKey: "receiverId" });
-// MessageReply.sync();
 module.exports = MessageReply;

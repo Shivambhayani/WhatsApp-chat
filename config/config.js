@@ -8,7 +8,7 @@ const config = {
   test: {
     username: "root",
     password: "password$1",
-    database: "chatapp",
+    database: "chat_app",
     host: "localhost",
     dialect: "mysql",
   },

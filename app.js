@@ -2,19 +2,20 @@ const dotenv = require("dotenv");
 const express = require("express");
 const path = require("path");
 const app = express();
+const cors = require("cors");
 dotenv.config({
   path: "./.env",
 });
 const sequelize = require("./config/db.js");
 
 const indexRouter = require("./routes");
-const { execPath } = require("process");
-
+app.use(cors());
 app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.urlencoded({ extended: true }));
+const publicDirectoryPath = path.join(__dirname, "public");
+app.use(express.static(publicDirectoryPath));
 
-app.use(indexRouter);
+app.use("/", indexRouter);
 
 app.use(async (err, req, res, next) => {
   console.log({ err });

@@ -19,3 +19,11 @@ exports.getAll = async (data) => {
 exports.findById = async (data) => {
   return MessageReply.findById(data);
 };
+
+exports.update = async (data, query) => {
+  return MessageReply.update(data, query);
+};
+
+exports.destroy = async (data) => {
+  return MessageReply.destroy(data);
+};

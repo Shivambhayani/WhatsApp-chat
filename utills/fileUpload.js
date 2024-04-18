@@ -9,7 +9,7 @@ cloudinary.config({
 
 exports.uploadCloudinary = async (localFilePath, profileType, entityId) => {
   try {
-    if (!localFilePath || !profileType || !entityId) return null;
+    if (!localFilePath || !profileType) return null;
 
     let folderName;
     if (profileType === "user") {
@@ -22,18 +22,15 @@ exports.uploadCloudinary = async (localFilePath, profileType, entityId) => {
       throw new Error("Invalid profile type");
     }
 
-    // Check if the folder exists, if not, create it
     // Create the folder if it doesn't exist
     await cloudinary.api.create_folder(folderName);
 
     const response = await cloudinary.uploader.upload(localFilePath, {
-      folder: folderName, // Folder name on Cloudinary
-      public_id: entityId, // Using entityId as the public_id for easy retrieval
-      allowedFormats: ["pdf", "jpg", "png", "gif", "mp4"],
-      // transformation: [{ width: 150, height: 150, crop: "fill" }],
+      folder: folderName, // Folder
+      resource_type: "auto",
     });
 
-    console.log(`file uploaded ${response.url}`);
+    // console.log(`file uploaded ${response.url}`);
 
     return response;
   } catch (error) {
@@ -42,4 +39,27 @@ exports.uploadCloudinary = async (localFilePath, profileType, entityId) => {
 
     return null;
   }
+};
+
+exports.deleteFileFromCloudinary = async (fileUrl) => {
+  try {
+    // Extract the public ID from the file URL
+    const publicId = extractPublicId(fileUrl);
+
+    // Delete the file from Cloudinary using its public ID
+    const deletionResponse = await cloudinary.uploader.destroy(publicId);
+
+    // Return the deletion response
+    return deletionResponse;
+  } catch (error) {
+    // Handle errors
+    console.error("Error deleting file from Cloudinary:", error);
+    throw new Error("Failed to delete file from Cloudinary");
+  }
+};
+
+const extractPublicId = (fileUrl) => {
+  // Extract the public ID from the Cloudinary file URL
+  const publicId = fileUrl.split("/").pop().split("/").pop().split(".")[0];
+  return publicId;
 };

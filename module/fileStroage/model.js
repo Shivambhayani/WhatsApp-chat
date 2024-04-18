@@ -18,9 +18,10 @@ const FileStore = sequelize.define(
         key: "id",
       },
     },
+
     filename: { type: Sequelize.STRING },
     type: { type: Sequelize.STRING }, //pdf,doc etc
-    filesize: { type: Sequelize.INTEGER },
+    filesize: { type: Sequelize.STRING },
     fileurl: { type: Sequelize.STRING },
     sent_At: { type: Sequelize.DATE },
     seen_At: { type: Sequelize.DATE },
@@ -35,8 +36,4 @@ const FileStore = sequelize.define(
   }
 );
 
-// Message.hasMany(FileStore, { foreignKey: "messageId" });
-// FileStore.belongsTo(Message, { foreignKey: "messageId" }); // A file belongs to a message
-
-// FileStore.sync();
 module.exports = FileStore;

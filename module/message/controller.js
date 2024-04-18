@@ -3,15 +3,14 @@ const User = require("../user/model.js");
 const userService = require("../user/service.js");
 const { Op } = require("sequelize");
 const MessageReply = require("../messageReply/model.js");
+const { uploadFileToCloudinary } = require("../fileStroage/controller.js");
+const FileStore = require("../fileStroage/model.js");
 
 exports.sendMessage = async (req, res, next) => {
   try {
     const { conversation, receiverId } = req.body;
-    // if (!receiverId) {
-    //   return res
-    //     .status(404)
-    //     .json({ status: "fail", message: "ReceiverId required" });
-    // }
+    const senderId = req.user.id;
+
     // Check if the receiver exists
     const receiver = await userService.findOne({ where: { id: receiverId } });
     if (!receiver) {
@@ -39,22 +38,26 @@ exports.sendMessage = async (req, res, next) => {
 
     const message = await service.create({
       conversation,
-      senderId: req.user.id, // Assuming sender is the authenticated user
+      senderId,
       receiverId,
       sent_At: new Date(),
       delivred: true,
     });
-    res
+
+    //  file uploads in cloudnary
+    await uploadFileToCloudinary(req, message);
+    return res
       .status(201)
       .json({ status: "success", data: { message, existingMessages } });
   } catch (error) {
+    // return res.status(500).json({ status: "error", message: error });
     next(error);
   }
 };
 
-exports.recivedMessage = async (req, res, next) => {
+exports.getAllMessage = async (req, res, next) => {
   try {
-    const message = await service.findAll({
+    const messages = await service.findAll({
       where: { groupId: null },
       include: [
         { model: User, as: "sender", attributes: ["id", "name"] },
@@ -72,25 +75,31 @@ exports.recivedMessage = async (req, res, next) => {
             "sent_At",
             "seen_At",
             "delivred",
+            "senderId",
           ],
           order: [["createdAt", "DESC"]],
         },
+        {
+          model: FileStore, // Include file sharing
+          attributes: [
+            "id",
+            "messageId",
+            "filename",
+            "type",
+            "filesize",
+            "fileurl",
+            "sent_At",
+            "seen_At",
+            "delivered",
+          ],
+          order: [["sent_At", "DESC"]],
+        },
       ],
-
       order: [["createdAt", "DESC"]],
-      attributes: [
-        "id",
-        "conversation",
-        // "senderId",
-        // "receiverId",
-        // "groupId",
-        "sent_At",
-        "seen_At",
-        "delivred",
-      ],
+      attributes: ["id", "conversation", "sent_At", "seen_At", "delivred"],
     });
 
-    res.status(200).json({ status: "success", data: message });
+    res.status(200).json({ status: "success", data: messages });
   } catch (error) {
     next(error);
   }
@@ -98,9 +107,25 @@ exports.recivedMessage = async (req, res, next) => {
 
 exports.deleteMessage = async (req, res, next) => {
   try {
-    const messageId = req.params.id.split(",").map((id) => parseInt(id));
+    const messageIds = req.params.id.split(",").map((id) => parseInt(id));
 
-    await service.destroy({ where: { id: messageId } });
+    // Delete one-to-one messages where the group ID is null
+    const result = await service.destroy({
+      where: {
+        id: messageIds,
+        senderId: req.user.id,
+        groupId: null,
+      },
+    });
+
+    // If no rows were affected, return an error
+    if (result === 0) {
+      return res.status(403).json({
+        status: "fail",
+        error: "You are not authorized to delete these messages",
+      });
+    }
+
     return res.status(200).json({
       status: "success",
       message: "message deleted successfully",
@@ -114,28 +139,29 @@ exports.deleteMessage = async (req, res, next) => {
 
 exports.editmesseges = async (req, res, next) => {
   try {
-    const { messageId } = req.params;
-    const message = await service.update(req.body, {
+    const messageIds = req.params.id;
+    const [updatedRowsCount, updatedMessages] = await service.update(req.body, {
       where: {
-        id: req.params.id,
+        id: messageIds,
+        senderId: req.user.id,
+        groupId: null,
       },
+      returning: true, // This option is necessary to return the updated message
     });
-    // const { conversation } = req.body;
 
-    // const message = await service.findByPk(messageId);
-    // // Check if the message exists
-    // if (!message) {
-    //   return res
-    //     .status(404)
-    //     .json({ status: "fail", message: "Message not found" });
-    // }
-    // message.conversation = conversation;
+    // If no rows were affected by the update, return error
+    if (updatedRowsCount === 0) {
+      return res.status(403).json({
+        status: "fail",
+        error: "You are not authorized to edit this message",
+      });
+    }
 
-    // await message.save();
-    res.status(203).json({
+    // If the message was updated successfully, return success response
+    return res.status(203).json({
       status: "success",
       message: "Message updated successfully",
-      data: message,
+      data: updatedMessages[0], // Assuming only one message is updated
     });
   } catch (error) {
     next(error);

@@ -29,7 +29,7 @@ const UserGroup = sequelize.define(
     role: { type: Sequelize.INTEGER }, // for admin or not,
     deletedAt: {
       type: Sequelize.DATE,
-      allowNull: true, // Allow null to enable soft delete
+      allowNull: true,
     },
   },
   {

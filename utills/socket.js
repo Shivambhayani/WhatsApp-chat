@@ -1,26 +1,27 @@
-// const http = require("http");
-const socketIO = require("socket.io");
+// // const http = require("http");
+const socketIo = require("socket.io");
 
-let io;
+function configureSocket(server) {
+  const io = socketIo(server, {
+    connectionStateRecovery: {},
+    cors: "*",
+  });
 
-module.exports = {
-  init: (server) => {
-    io = socketIO(server);
+  io.on("connection", (socket) => {
+    console.log("connected");
+    socket.emit("message", "Welcome");
 
-    io.on("connection", (socket) => {
-      console.log("User connected:", socket.id);
-
-      socket.on("disconnect", () => {
-        console.log("User disconnected:", socket.id);
-      });
+    socket.on("chat message", (msg) => {
+      //   console.log("message: " + msg);
+      io.emit("chat message", msg); // Broadcast message to all connected clients
     });
 
-    return io;
-  },
-  getIo: () => {
-    if (!io) {
-      throw new Error("Socket.IO not initialized");
-    }
-    return io;
-  },
-};
+    socket.on("disconnect", () => {
+      console.log("User disconnected");
+    });
+  });
+
+  return io;
+}
+
+module.exports = configureSocket;

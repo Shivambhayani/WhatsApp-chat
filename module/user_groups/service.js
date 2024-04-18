@@ -18,3 +18,7 @@ exports.bulkCreate = async (data) => {
 exports.update = async (data, query) => {
   return await UserGroup.update(data, query);
 };
+
+exports.findAll = async (data) => {
+  return await UserGroup.findAll(data);
+};

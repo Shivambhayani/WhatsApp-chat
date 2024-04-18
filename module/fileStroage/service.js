@@ -1,4 +1,4 @@
-const fileStroage = require("./model");
+const fileStroage = require("./model.js");
 
 exports.create = async (data) => {
   return fileStroage.create(data);
