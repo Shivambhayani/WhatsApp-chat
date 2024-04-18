@@ -301,6 +301,40 @@ exports.groupChats = async (req, res, next) => {
     }
 
     const sentAt = moment.utc().tz("Asia/Kolkata").format("LLL");
+
+    let existingMessages = await MessageService.findAll({
+      where: {
+        groupId,
+      },
+      include: [
+        {
+          model: MessageReply,
+          include: [
+            { model: User, as: "sender", attributes: ["id", "name"] },
+            { model: User, as: "receiver", attributes: ["id", "name"] },
+          ],
+          attributes: [
+            "id",
+            "conversation",
+            "senderId",
+            "receiverId",
+            "sent_At",
+            "seen_At",
+            "delivred",
+          ],
+        },
+      ],
+      order: [["createdAt", "DESC"]],
+      attributes: [
+        "id",
+        "conversation",
+        "senderId",
+        "receiverId",
+        "sent_At",
+        "seen_At",
+        "delivred",
+      ],
+    });
     //create a message
     const message = await MessageService.create({
       conversation,
@@ -310,9 +344,12 @@ exports.groupChats = async (req, res, next) => {
     });
 
     //  file uploads in cloudnary
-    await uploadFileToCloudinary(req, message);
-
-    return res.status(201).json({ status: "success", data: message });
+    if (req.file) {
+      await uploadFileToCloudinary(req, message);
+    }
+    return res
+      .status(201)
+      .json({ status: "success", data: { message, existingMessages } });
   } catch (error) {
     next(error);
   }

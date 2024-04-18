@@ -20,10 +20,28 @@ exports.sendMessage = async (req, res, next) => {
     let existingMessages = await service.findAll({
       where: {
         [Op.or]: [
-          { senderId: req.user.id, receiverId: receiverId },
-          { senderId: receiverId, receiverId: req.user.id },
+          { senderId: senderId, receiverId: receiverId },
+          { senderId: receiverId, receiverId: senderId },
         ],
       },
+      include: [
+        {
+          model: MessageReply,
+          include: [
+            { model: User, as: "sender", attributes: ["id", "name"] },
+            { model: User, as: "receiver", attributes: ["id", "name"] },
+          ],
+          attributes: [
+            "id",
+            "conversation",
+            "senderId",
+            "receiverId",
+            "sent_At",
+            "seen_At",
+            "delivred",
+          ],
+        },
+      ],
       order: [["createdAt", "DESC"]],
       attributes: [
         "id",
@@ -45,7 +63,9 @@ exports.sendMessage = async (req, res, next) => {
     });
 
     //  file uploads in cloudnary
-    await uploadFileToCloudinary(req, message);
+    if (req.file) {
+      await uploadFileToCloudinary(req, message);
+    }
     return res
       .status(201)
       .json({ status: "success", data: { message, existingMessages } });
