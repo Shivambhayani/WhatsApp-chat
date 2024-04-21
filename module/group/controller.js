@@ -125,10 +125,11 @@ exports.addMemberToGroup = async (req, res, next) => {
       where: { id: addedMemberIds },
       attributes: ["name"],
     });
+    const names = addedMemberNames.map((member) => member.name);
 
     res.status(200).json({
       status: "success",
-      message: `${addedMemberNames.join(", ")} has join!`,
+      message: `${names.join(", ")} has join!`,
     });
   } catch (error) {
     next(error);
@@ -227,10 +228,11 @@ exports.updateGroupDetails = async (req, res, next) => {
   }
 };
 
-exports.removeUserFromGroup = async (req, res, next) => {
+exports.removeUserFromGroups = async (req, res, next) => {
   try {
     const { groupId, userId } = req.body;
     console.log(groupId, userId);
+    console.log("remove");
     const adminId = req.user.id;
     // Check if the user making the request is the admin of the group
     const [admin, userGroup] = await Promise.all([
@@ -246,19 +248,22 @@ exports.removeUserFromGroup = async (req, res, next) => {
         message: "Only admin can remove users from the group",
       });
     }
+    console.log("-----> good");
     // Check if the user to be removed is a member of the group
     const [removedUser] = await Promise.all([
       UserService.findByPk(userId, { attributes: ["name"] }),
       UserGroupService.destroy({ where: { groupId, userId } }),
     ]);
-
+    // console.log("----> amxing");
     if (!removedUser) {
       return res
         .status(404)
         .json({ status: "fail", message: "User is not a member of the group" });
     }
     // Remove the user from the group
-    await UserGroupService.destroy({ where: { groupId, userId } });
+    await UserGroupService.destroy({
+      where: { groupId, userId },
+    });
 
     res.status(200).json({
       status: "success",

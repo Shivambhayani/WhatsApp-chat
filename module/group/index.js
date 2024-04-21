@@ -4,7 +4,7 @@ const {
   addMemberToGroup,
   updateGroupDetails,
   deleteGroup,
-  removeUserFromGroup,
+  removeUserFromGroups,
   promoteToAdmin,
   groupChats,
   getAll,
@@ -19,10 +19,10 @@ const router = express.Router();
 router.use(protected);
 
 router.post("/newGroup", upload.single("group_pic"), createGroup);
+router.post("/removeUsers", removeUserFromGroups);
 router.post("/addMember", addMemberToGroup);
-router.post("/:id", upload.single("fileurl"), groupChats);
 router.post("/admin", promoteToAdmin);
-router.post("/removeUser", removeUserFromGroup);
+router.post("/:id", upload.single("fileurl"), groupChats);
 
 router.patch("/rename/:id", upload.single("group_pic"), updateGroupDetails);
 router.patch("/:id", editGroupMessages);
