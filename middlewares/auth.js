@@ -51,5 +51,3 @@ exports.protected = async (req, res, next) => {
     next(err);
   }
 };
-// auth
-// req -> jwt -> auth or not -> if yes then next() -> else res fail

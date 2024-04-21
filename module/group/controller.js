@@ -108,22 +108,23 @@ exports.addMemberToGroup = async (req, res, next) => {
     }
     // Add new members to the group in a single database call
     // Add new members to the group and fetch their names in parallel
-    const [addedMembers] = await Promise.all([
-      UserGroupService.bulkCreate(
-        userIds.map((userId) => ({
-          userId,
-          groupId,
-          role: 0,
-        }))
-      ),
-      UserService.findAll({
-        where: { id: userIds },
-        attributes: ["name"],
-      }),
-    ]);
-    const addedMemberNames = addedMembers.map(
-      (member) => member.name || "Unknown user"
+    const addedMembers = await UserGroupService.bulkCreate(
+      userIds.map((userId) => ({
+        userId,
+        groupId,
+        role: 0,
+      }))
     );
+    // UserService.findAll({
+    //   where: { id: userIds },
+    //   attributes: ["name"],
+    // }),
+
+    const addedMemberIds = addedMembers.map((member) => member.userId);
+    const addedMemberNames = await UserService.findAll({
+      where: { id: addedMemberIds },
+      attributes: ["name"],
+    });
 
     res.status(200).json({
       status: "success",
@@ -229,6 +230,7 @@ exports.updateGroupDetails = async (req, res, next) => {
 exports.removeUserFromGroup = async (req, res, next) => {
   try {
     const { groupId, userId } = req.body;
+    console.log(groupId, userId);
     const adminId = req.user.id;
     // Check if the user making the request is the admin of the group
     const [admin, userGroup] = await Promise.all([

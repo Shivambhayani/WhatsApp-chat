@@ -1,5 +1,8 @@
 const service = require("./service.js");
 const userGroupService = require("../user_groups/service.js");
+const MessageService = require("../message/service.js");
+const MessageReply = require("../messageReply/model.js");
+const User = require("../user/model.js");
 const { Op } = require("sequelize");
 
 // whatsApp nested message reply like
@@ -41,6 +44,29 @@ exports.createdMessageReplay = async (req, res, next) => {
       receiverIds.push(receiverId);
     }
 
+    // Fetch existing messages for the specified message
+    const existingMessages = await MessageService.findAll({
+      where: { id: messageId },
+      order: [["createdAt", "DESC"]],
+      include: [
+        {
+          model: MessageReply,
+          include: [
+            { model: User, as: "sender", attributes: ["id", "name"] },
+            { model: User, as: "receiver", attributes: ["id", "name"] },
+          ],
+          attributes: [
+            "id",
+            "conversation",
+            "senderId",
+            "receiverId",
+            "sent_At",
+            "seen_At",
+            "delivred",
+          ],
+        },
+      ],
+    });
     const messageReplyData = {
       messageId,
       conversation,
@@ -59,7 +85,9 @@ exports.createdMessageReplay = async (req, res, next) => {
 
     const messageReply = await service.create(messageReplyData);
 
-    res.status(201).json({ status: "success", data: messageReply });
+    res
+      .status(201)
+      .json({ status: "success", data: { messageReply, existingMessages } });
   } catch (error) {
     next(error);
   }

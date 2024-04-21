@@ -29,10 +29,10 @@ exports.uploadFilec = async (req, res, next) => {
 
     const file = await service.create({
       messageId: messageId,
-      filename: req.file.originalname,
-      type: req.file.mimetype,
+      filename: req.file?.originalname,
+      type: req.file?.mimetype,
       filesize: fileSize,
-      fileurl: cloudinaryResponse.url,
+      fileurl: cloudinaryResponse?.url,
       sent_At: new Date(),
       delivered: true,
     });
@@ -49,7 +49,7 @@ exports.uploadFileToCloudinary = async (req, message) => {
     throw new Error("No file provided");
   }
 
-  const imageLocalPath = req.file.path;
+  const imageLocalPath = req.file?.path;
   // console.log("localPath =>>", imageLocalPath);
   const entityId = uuidv4();
 
@@ -68,10 +68,10 @@ exports.uploadFileToCloudinary = async (req, message) => {
   // Process file upload
   const fileData = {
     messageId: message.id,
-    filename: req.file.originalname,
-    type: req.file.mimetype,
+    filename: req.file?.originalname,
+    type: req.file?.mimetype,
     filesize: fileSize,
-    fileurl: cloudinaryResponse.url,
+    fileurl: cloudinaryResponse?.url,
     sent_At: new Date(),
     delivered: true,
   };

@@ -79,9 +79,9 @@
           input.value = "";
         }
       });
-      socket.on("chat message", (msg) => {
+      socket.on("sendMessage", ({ senderId, recipientId, message }) => {
         const item = document.createElement("li");
-        item.textContent = msg;
+        item.textContent = { senderId, recipientId, message };
         messages.appendChild(item);
         window.scrollTo(0, document.body.scrollHeight);
       });
