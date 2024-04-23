@@ -59,7 +59,7 @@ exports.sendMessage = async (req, res, next) => {
       senderId,
       receiverId,
       sent_At: new Date(),
-      delivred: true,
+      delivred: false,
     });
 
     //  file uploads in cloudnary
@@ -185,5 +185,38 @@ exports.editmesseges = async (req, res, next) => {
     });
   } catch (error) {
     next(error);
+  }
+};
+
+exports.findPendingMessagesForUser = async (userId, groupId = null) => {
+  try {
+    const whereCondition = groupId ? { groupId } : { receiverId: userId };
+    const pendingMessages = await service.findAll({
+      where: {
+        ...whereCondition,
+        delivred: false, // Filter messages that are not yet delivered
+      },
+    });
+    return pendingMessages;
+  } catch (error) {
+    console.error("Error finding pending messages for user:", error);
+    throw error;
+  }
+};
+
+exports.updateDeliveryStatus = async (messageId, delivred) => {
+  try {
+    const [rowsAffected] = await service.update(
+      { delivred },
+      {
+        where: {
+          id: messageId,
+        },
+      }
+    );
+    return rowsAffected > 0; // Return true if the message was updated successfully
+  } catch (error) {
+    console.error("Error updating delivery status:", error);
+    throw error;
   }
 };

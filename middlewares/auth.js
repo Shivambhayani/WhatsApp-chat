@@ -7,6 +7,41 @@ exports.generateToken = (id) => {
   });
 };
 
+function verifyToken(token) {
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_ACCESS_TOKEN);
+    // console.log("decoded ==>", decoded);
+    return decoded.id;
+  } catch (err) {
+    console.log("verify token error", err);
+    return null;
+  }
+}
+
+exports.authenticateSocket = async (data) => {
+  try {
+    let token;
+    if (data.authorization?.startsWith("Bearer")) {
+      token = data.authorization?.split(" ")[1];
+      // console.log("join ==>", token);
+    }
+    // console.log(token);
+    const userId = verifyToken(token);
+    // console.log("UserId ==>", userId);
+    if (!userId) {
+      console.error("Socket authentication failed: Invalid token");
+
+      return;
+    }
+    // Attach user ID to the socket object for later use
+    // const user = await userService.findOne({ where: { id: userId.id } });
+    data.userId = userId;
+    return userId;
+  } catch (error) {
+    console.log("error", error);
+  }
+};
+
 exports.sendToken = (user, token, statusCode, res) => {
   res.status(statusCode).json({
     status: "success",

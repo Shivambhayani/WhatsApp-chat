@@ -15,6 +15,9 @@ exports.findByPk = async (data) => {
 exports.findAll = async (data) => {
   return Message.findAll(data);
 };
+exports.findAndCountAll = async (data) => {
+  return Message.findAndCountAll(data);
+};
 
 exports.destroy = async (data) => {
   return Message.destroy(data);
