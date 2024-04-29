@@ -11,7 +11,9 @@ const moment = require("moment");
 const { uploadFileToCloudinary } = require("../fileStroage/controller.js");
 const User = require("../user/model.js");
 const MessageReply = require("../messageReply/model.js");
-const { Op } = require("sequelize");
+const messageReplyservices = require("../messageReply/service.js");
+const userGroupService = require("../user_groups/service.js");
+const { Op, where } = require("sequelize");
 const FileStore = require("../fileStroage/model.js");
 
 exports.createGroup = async (req, res, next) => {
@@ -274,16 +276,49 @@ exports.removeUserFromGroups = async (req, res, next) => {
   }
 };
 
-// delete Group
-exports.deleteGroup = async (req, res, next) => {
+// delete Group & related mgs
+exports.deleteGroupWithMessages = async (req, res, next) => {
   try {
     const groupId = req.params.id.split(",").map((id) => parseInt(id));
+    const userId = req.user.id;
+    if (!userId) {
+      return res.status(401).json({
+        status: "fail",
+        error: "Unauthorized: User not authenticated",
+      });
+    }
+    // Check if the user has admin role (role: 1) within the specified group
+    const isAdmin = await userGroupService.findOne({
+      where: {
+        groupId: groupId,
+        userId: userId,
+        role: 1,
+      },
+    });
 
-    await service.destroy({ where: { id: groupId } });
+    if (!isAdmin) {
+      return res.status(403).json({
+        status: "fail",
+        error: " User is not authorized to delete the group",
+      });
+    }
 
+    const [groupDeleted, messagesDeleted, repliesDeleted] = await Promise.all([
+      service.destroy({ where: { id: groupId } }),
+      MessageService.destroy({ where: { groupId: groupId } }),
+      messageReplyservices.destroy({ where: { groupId: groupId } }),
+      userGroupService.destroy({ where: { groupId: groupId } }),
+    ]);
+
+    if (groupDeleted === 0) {
+      return res.status(404).json({
+        status: "fail",
+        error: "Group not found or you are not authorized to delete it",
+      });
+    }
     res.status(200).json({
       status: "success",
-      message: "group deleted",
+      message: "Group, its related messages, and replies deleted successfully",
     });
   } catch (error) {
     next(error);

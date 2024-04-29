@@ -9,8 +9,6 @@ const {
   updateDeliveryStatus,
 } = require("../module/message/controller");
 const UserGroup = require("../module/user_groups/service");
-const clients = {};
-const groups = {};
 
 // function generateToken(userId) {
 //   return jwt.sign({ userId }, process.env.JWT_ACCESS_TOKEN, {
@@ -23,7 +21,9 @@ function configureSocket(server) {
     connectionStateRecovery: {},
     cors: "*",
   });
-
+  const clients = {};
+  const groups = {};
+  const groupMessageDeliveryStatus = {};
   io.on("connection", async (socket) => {
     console.log("connected");
     socket.emit("greeting", "Welcome 😀");
@@ -104,6 +104,11 @@ function configureSocket(server) {
           socket.broadcast
             .to(groupId)
             .emit("receiveMessage", { senderId, message }); //sender not recive message
+          // Track the delivery status for the group message
+          // groupMessageDeliveryStatus[newMessage.id] = {
+          //   groupId: groupId,
+          //   recipients: [],
+          // };
           console.log(`Message received by ${recipientId}: ${message}`);
           // await updateDeliveryStatus(newMessage.id, true);
         } else if (!groupId) {
@@ -128,17 +133,34 @@ function configureSocket(server) {
         }
       }
     );
-    socket.on("getAllMessage", async () => {
+    socket.on("getAllMessage", async (data) => {
       try {
+        const { userId, groupId } = data;
         // const allMessages = await messageService.findAndCountAll({
         //   limit: 10,
         //   offset: 3,
         //   order: [["createdAt", "DESC"]], // Assuming messages are sorted by creation date
         // });
-        const allMessages = await messageService.findAll({
-          order: [["createdAt", "DESC"]],
-        });
-        socket.emit("allMessages", allMessages);
+        let messages;
+        if (groupId) {
+          // Fetch messages for a specific group chat
+          messages = await messageService.findAll({
+            where: {
+              groupId: groupId,
+            },
+            order: [["createdAt", "DESC"]],
+          });
+        } else {
+          // Fetch messages for a one-to-one chat
+          messages = await messageService.findAll({
+            where: {
+              [Op.or]: [{ senderId: userId }, { receiverId: userId }],
+              groupId: null, // Exclude group messages
+            },
+            order: [["createdAt", "DESC"]],
+          });
+        }
+        socket.emit("allMessages", messages);
       } catch (error) {
         console.error("Error getting all messages:", error);
         socket.emit("error", "Error fetching messages");
@@ -215,7 +237,7 @@ function configureSocket(server) {
       }
     });
 
-    // Delte msg
+    // Delete msg
     socket.on("delete", async (data) => {
       try {
         const { senderId, messageId, groupId } = data;
@@ -241,7 +263,38 @@ function configureSocket(server) {
       const pendingMessages = await findPendingMessagesForUser(userId, groupId);
       pendingMessages.forEach(async (message) => {
         socket.emit("receiveMessage", message);
-        await updateDeliveryStatus(message.id, true);
+        const messageRecipients = groups[groupId] || [];
+        console.log("Message recipients:", messageRecipients);
+        console.log(
+          "Group message delivery status:",
+          groupMessageDeliveryStatus
+        );
+        if (messageRecipients && messageRecipients.length > 0) {
+          const messageSeenByAll = messageRecipients.every(
+            (recipientId) =>
+              recipientId !== message.senderId && // Exclude the sender
+              groupMessageDeliveryStatus[groupId]?.[message.id]?.includes(
+                recipientId
+              ),
+            console.log("group", groupMessageDeliveryStatus[groupId])
+          );
+          console.log("staus", groupMessageDeliveryStatus);
+          if (
+            groupMessageDeliveryStatus[groupId] &&
+            groupMessageDeliveryStatus[groupId][message.id]
+          ) {
+            console.log(groupMessageDeliveryStatus[groupId][message.id]);
+          } else {
+            console.log("Delivery status not found for message:", message.id);
+          }
+          console.log("seen", messageSeenByAll);
+          // Update delivery status only if the message has been seen by all recipients except the current user
+          if (messageSeenByAll && !message.delivred) {
+            await updateDeliveryStatus(message.id, true);
+
+            console.log("Delivery status updated for message:", message.id);
+          }
+        }
       });
     });
     socket.on("disconnect", () => {

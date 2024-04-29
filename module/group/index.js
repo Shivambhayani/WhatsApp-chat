@@ -3,7 +3,7 @@ const {
   createGroup,
   addMemberToGroup,
   updateGroupDetails,
-  deleteGroup,
+  deleteGroupWithMessages,
   removeUserFromGroups,
   promoteToAdmin,
   groupChats,
@@ -27,7 +27,7 @@ router.post("/:id", upload.single("fileurl"), groupChats);
 router.patch("/rename/:id", upload.single("group_pic"), updateGroupDetails);
 router.patch("/:id", editGroupMessages);
 
-router.delete("/:id", deleteGroup);
+router.delete("/:id", deleteGroupWithMessages);
 router.delete("/message/:id", deleteGroupMessage);
 
 router.get("/:id", getAll);
